@@ -18,8 +18,8 @@ func main() {
 		log.Fatalf("Failed to read config: %v", err)
 	}
 	// Connect to DB
-	const dbURL = "postgres://frankiebrown:@localhost:5432/gator?sslmode=disable"
-	db, err := sql.Open("postgres", dbURL)
+
+	db, err := sql.Open("postgres", DbURL)
 	if err != nil {
 		log.Fatalf("Failed to open databse: %v", err)
 	}
