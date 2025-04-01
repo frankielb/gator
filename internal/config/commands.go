@@ -90,6 +90,22 @@ func HandlerReset(s *State, cmd Command) error {
 	return nil
 }
 
+func HandlerUsers(s *State, cmd Command) error {
+	users, err := s.Db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("error getting users: %v", err)
+	}
+
+	for _, user := range users {
+		if user == s.CurrentConfig.CurrentUserName {
+			fmt.Printf("* %s (current)\n", user)
+		} else {
+			fmt.Printf("* %s\n", user)
+		}
+	}
+	return nil
+}
+
 type Commands struct {
 	Handlers map[string]func(*State, Command) error
 }
