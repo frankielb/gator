@@ -81,6 +81,15 @@ func HandlerRegister(s *State, cmd Command) error {
 	return nil
 }
 
+func HandlerReset(s *State, cmd Command) error {
+	err := s.Db.DeleteUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("error resetting database: %v", err)
+	}
+	fmt.Println("database reset successfully")
+	return nil
+}
+
 type Commands struct {
 	Handlers map[string]func(*State, Command) error
 }
