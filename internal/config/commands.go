@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/frankielb/gator/internal/database"
+	"github.com/frankielb/gator/internal/rss"
 	"github.com/google/uuid"
 )
 
@@ -104,6 +105,17 @@ func HandlerUsers(s *State, cmd Command) error {
 		}
 	}
 	return nil
+}
+
+func HandlerAgg(s *State, cmd Command) error {
+	w := "https://www.wagslane.dev/index.xml"
+	rssFeed, err := rss.FetchFeed(context.Background(), w)
+	if err != nil {
+		return fmt.Errorf("error fetching feed: %v", err)
+	}
+	fmt.Printf("%+v\n", rssFeed)
+	return nil
+
 }
 
 type Commands struct {
