@@ -1,26 +1,42 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/frankielb/gator/internal/config"
+	"github.com/frankielb/gator/internal/database"
+	_ "github.com/lib/pq"
 )
 
 func main() {
+	// Load config
 	cfg, err := config.Read()
 	if err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
+	// Connect to DB
+	const dbURL = "postgres://frankiebrown:@localhost:5432/gator?sslmode=disable"
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Failed to open databse: %v", err)
+	}
+	defer db.Close()
+	// Generate sqlc queries
+	dbQueries := database.New(db)
 
 	state := config.State{
 		CurrentConfig: &cfg,
+		Db:            dbQueries,
 	}
+
 	commands := config.Commands{
 		Handlers: make(map[string]func(*config.State, config.Command) error),
 	}
 	commands.Register("login", config.HandlerLogin)
+	commands.Register("register", config.HandlerRegister)
 
 	args := os.Args
 	if len(args) < 2 {
