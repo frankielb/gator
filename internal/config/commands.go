@@ -118,6 +118,36 @@ func HandlerAgg(s *State, cmd Command) error {
 
 }
 
+func HandlerAddFeed(s *State, cmd Command) error {
+	if len(cmd.Args) < 2 {
+		return fmt.Errorf("no name or URL given")
+	}
+	name := cmd.Args[0]
+	url := cmd.Args[1]
+	currentUser := s.CurrentConfig.CurrentUserName
+	user, err := s.Db.GetUser(context.Background(), currentUser)
+	if err != nil {
+		return fmt.Errorf("error finding user id: %v", err)
+	}
+	userID := user.ID
+	now := time.Now()
+	feedID := uuid.New()
+
+	feed, err := s.Db.CreateFeed(context.Background(), database.CreateFeedParams{
+		ID:        feedID,
+		CreatedAt: now,
+		UpdatedAt: now,
+		Name:      name,
+		Url:       url,
+		UserID:    userID,
+	})
+	if err != nil {
+		return fmt.Errorf("error creating feed: %v", err)
+	}
+	fmt.Printf("Feed created successfully:\n%v", feed)
+	return nil
+}
+
 type Commands struct {
 	Handlers map[string]func(*State, Command) error
 }
