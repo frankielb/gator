@@ -232,6 +232,21 @@ func HandlerFollowing(s *State, cmd Command, user database.User) error {
 	return nil
 }
 
+func HandlerUnfollow(s *State, cmd Command, user database.User) error {
+	if len(cmd.Args) == 0 {
+		return fmt.Errorf("no url given")
+	}
+	url := cmd.Args[0]
+	err := s.Db.DeleteFeedByUser(context.Background(), database.DeleteFeedByUserParams{
+		UserID: user.ID,
+		Url:    url,
+	})
+	if err != nil {
+		return fmt.Errorf("error unfollowing feed: %v", err)
+	}
+	return nil
+}
+
 func MiddlewareLoggedIn(handler func(s *State, cmd Command, user database.User) error) func(*State, Command) error {
 	return func(s *State, cmd Command) error {
 		user, err := s.Db.GetUser(context.Background(), s.CurrentConfig.CurrentUserName)
