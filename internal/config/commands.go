@@ -159,6 +159,40 @@ func HandlerFeeds(s *State, cmd Command) error {
 	return nil
 }
 
+func HandlerFollow(s *State, cmd Command) error {
+	if len(cmd.Args) == 0 {
+		return fmt.Errorf("no username given")
+	}
+	url := cmd.Args[0]
+	currentUser := s.CurrentConfig.CurrentUserName
+	newFollow := uuid.New()
+	now := time.Now()
+
+	user, err := s.Db.GetUser(context.Background(), currentUser)
+	if err != nil {
+		return fmt.Errorf("error finding user id: %v", err)
+	}
+	userID := user.ID
+	feed, err := s.Db.GetFeedByURL(context.Background(), url)
+	if err != nil {
+		return fmt.Errorf("error finding feed id: %v", err)
+	}
+	feedID := feed.ID
+	out, err := s.Db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:        newFollow,
+		CreatedAt: now,
+		UpdatedAt: now,
+		UserID:    userID,
+		FeedID:    feedID,
+	})
+	if err != nil {
+		return fmt.Errorf("error creating follow: %v", err)
+	}
+	fmt.Printf("Feed name: %v\nUser name: %v\n", out.FeedName, out.UserName)
+	return nil
+
+}
+
 type Commands struct {
 	Handlers map[string]func(*State, Command) error
 }
