@@ -118,17 +118,19 @@ func HandlerAgg(s *State, cmd Command) error {
 
 }
 
-func HandlerAddFeed(s *State, cmd Command) error {
+func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) < 2 {
 		return fmt.Errorf("no name or URL given")
 	}
 	name := cmd.Args[0]
 	url := cmd.Args[1]
-	currentUser := s.CurrentConfig.CurrentUserName
-	user, err := s.Db.GetUser(context.Background(), currentUser)
-	if err != nil {
-		return fmt.Errorf("error finding user id: %v", err)
-	}
+	/*
+		currentUser := s.CurrentConfig.CurrentUserName
+		user, err := s.Db.GetUser(context.Background(), currentUser)
+		if err != nil {
+			return fmt.Errorf("error finding user id: %v", err)
+		}
+	*/
 	userID := user.ID
 	now := time.Now()
 	feedID := uuid.New()
@@ -172,19 +174,20 @@ func HandlerFeeds(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerFollow(s *State, cmd Command) error {
+func HandlerFollow(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) == 0 {
 		return fmt.Errorf("no url given")
 	}
 	url := cmd.Args[0]
-	currentUser := s.CurrentConfig.CurrentUserName
+	//currentUser := s.CurrentConfig.CurrentUserName
 	newFollow := uuid.New()
 	now := time.Now()
-
-	user, err := s.Db.GetUser(context.Background(), currentUser)
-	if err != nil {
-		return fmt.Errorf("error finding user id: %v", err)
-	}
+	/*
+		user, err := s.Db.GetUser(context.Background(), currentUser)
+		if err != nil {
+			return fmt.Errorf("error finding user id: %v", err)
+		}
+	*/
 	userID := user.ID
 	feed, err := s.Db.GetFeedByURL(context.Background(), url)
 	if err != nil {
@@ -206,12 +209,14 @@ func HandlerFollow(s *State, cmd Command) error {
 
 }
 
-func HandlerFollowing(s *State, cmd Command) error {
-	currentUser := s.CurrentConfig.CurrentUserName
-	user, err := s.Db.GetUser(context.Background(), currentUser)
-	if err != nil {
-		return fmt.Errorf("error finding user id: %v", err)
-	}
+func HandlerFollowing(s *State, cmd Command, user database.User) error {
+	/*
+		currentUser := s.CurrentConfig.CurrentUserName
+		user, err := s.Db.GetUser(context.Background(), currentUser)
+		if err != nil {
+			return fmt.Errorf("error finding user id: %v", err)
+		}
+	*/
 
 	follows, err := s.Db.GetFeedFollowsUser(context.Background(), user.ID)
 	if err != nil {
@@ -225,6 +230,16 @@ func HandlerFollowing(s *State, cmd Command) error {
 		fmt.Printf("%v\n", follow.FeedName)
 	}
 	return nil
+}
+
+func MiddlewareLoggedIn(handler func(s *State, cmd Command, user database.User) error) func(*State, Command) error {
+	return func(s *State, cmd Command) error {
+		user, err := s.Db.GetUser(context.Background(), s.CurrentConfig.CurrentUserName)
+		if err != nil {
+			return fmt.Errorf("error finding user id: %v", err)
+		}
+		return handler(s, cmd, user)
+	}
 }
 
 type Commands struct {
