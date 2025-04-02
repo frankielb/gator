@@ -148,6 +148,17 @@ func HandlerAddFeed(s *State, cmd Command) error {
 	return nil
 }
 
+func HandlerFeeds(s *State, cmd Command) error {
+	feeds, err := s.Db.GetFeeds(context.Background())
+	if err != nil {
+		return fmt.Errorf("error getting feeds: %v", err)
+	}
+	for _, feed := range feeds {
+		fmt.Printf("Feed: %v\n -URL: %v\n -Username: %v\n\n", feed.Name, feed.Url, feed.Username)
+	}
+	return nil
+}
+
 type Commands struct {
 	Handlers map[string]func(*State, Command) error
 }
