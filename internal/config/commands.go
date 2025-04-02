@@ -144,7 +144,20 @@ func HandlerAddFeed(s *State, cmd Command) error {
 	if err != nil {
 		return fmt.Errorf("error creating feed: %v", err)
 	}
-	fmt.Printf("Feed created successfully:\n%v", feed)
+	// edited
+	newFollow := uuid.New()
+	out, err := s.Db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:        newFollow,
+		CreatedAt: now,
+		UpdatedAt: now,
+		UserID:    userID,
+		FeedID:    feedID,
+	})
+	if err != nil {
+		return fmt.Errorf("error following feed: %v", err)
+	}
+
+	fmt.Printf("Feed created successfully:\n%v\nAt:%v", feed.Name, out.CreatedAt)
 	return nil
 }
 
@@ -161,7 +174,7 @@ func HandlerFeeds(s *State, cmd Command) error {
 
 func HandlerFollow(s *State, cmd Command) error {
 	if len(cmd.Args) == 0 {
-		return fmt.Errorf("no username given")
+		return fmt.Errorf("no url given")
 	}
 	url := cmd.Args[0]
 	currentUser := s.CurrentConfig.CurrentUserName
@@ -191,6 +204,27 @@ func HandlerFollow(s *State, cmd Command) error {
 	fmt.Printf("Feed name: %v\nUser name: %v\n", out.FeedName, out.UserName)
 	return nil
 
+}
+
+func HandlerFollowing(s *State, cmd Command) error {
+	currentUser := s.CurrentConfig.CurrentUserName
+	user, err := s.Db.GetUser(context.Background(), currentUser)
+	if err != nil {
+		return fmt.Errorf("error finding user id: %v", err)
+	}
+
+	follows, err := s.Db.GetFeedFollowsUser(context.Background(), user.ID)
+	if err != nil {
+		return fmt.Errorf("error getting following: %v", err)
+	}
+	if len(follows) == 0 {
+		fmt.Println("You aren't following any feeds yet.")
+		return nil
+	}
+	for _, follow := range follows {
+		fmt.Printf("%v\n", follow.FeedName)
+	}
+	return nil
 }
 
 type Commands struct {
