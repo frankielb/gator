@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/frankielb/gator/internal/database"
@@ -255,6 +257,42 @@ func HandlerUnfollow(s *State, cmd Command, user database.User) error {
 	return nil
 }
 
+func HandlerBrowse(s *State, cmd Command, user database.User) error {
+	var limit int = 2
+
+	if len(cmd.Args) > 0 {
+		// Try to parse the first argument as an integer
+		parsedLimit, err := strconv.Atoi(cmd.Args[0])
+		if err != nil {
+			return fmt.Errorf("limit must be a number: %v", err)
+		}
+		limit = parsedLimit
+	}
+	posts, err := s.Db.GetPostsForUser(context.Background(), database.GetPostsForUserParams{
+		UserID: user.ID,
+		Limit:  int32(limit),
+	})
+	if err != nil {
+		return fmt.Errorf("error getting posts: %v", err)
+	}
+	if len(posts) == 0 {
+		fmt.Println("no posts found")
+		return nil
+	}
+	fmt.Printf("Found %d posts:\n\n", len(posts))
+	for i, post := range posts {
+		fmt.Printf("%d. %s\n", i+1, post.Title)
+		fmt.Printf("   URL: %s\n", post.Url)
+		if post.Description.Valid {
+			fmt.Printf("   %s\n", post.Description.String)
+		}
+		fmt.Printf("   Published: %s\n", post.PublishedAt.Time)
+		fmt.Println() // Empty line between posts
+	}
+	return nil
+
+}
+
 func MiddlewareLoggedIn(handler func(s *State, cmd Command, user database.User) error) func(*State, Command) error {
 	return func(s *State, cmd Command) error {
 		user, err := s.Db.GetUser(context.Background(), s.CurrentConfig.CurrentUserName)
@@ -297,8 +335,66 @@ func ScrapeFeeds(s *State) error {
 	if err != nil {
 		return fmt.Errorf("error getting feed from url: %v", err)
 	}
+
 	for _, i := range feed.Channel.Item {
-		fmt.Println(i.Title)
+		//fmt.Println(i.Title)
+		postID := uuid.New()
+		now := time.Now()
+
+		// to get time in sql form
+		var publishedAt sql.NullTime
+		if i.PubDate != "" {
+			// Try RFC1123Z format (common in RSS)
+			pubTime, err := time.Parse(time.RFC1123Z, i.PubDate)
+			if err != nil {
+				// Try RFC1123 format
+				pubTime, err = time.Parse(time.RFC1123, i.PubDate)
+				if err != nil {
+					// Try another common format
+					pubTime, err = time.Parse("2006-01-02T15:04:05Z", i.PubDate)
+					if err != nil {
+						// Log it but continue
+						fmt.Printf("Could not parse date '%s': %v\n", i.PubDate, err)
+						// Leave as null time
+					}
+				}
+			}
+
+			if err == nil {
+				publishedAt = sql.NullTime{
+					Time:  pubTime,
+					Valid: true,
+				}
+			}
+		}
+		var description sql.NullString
+		if i.Description != "" {
+			description = sql.NullString{
+				String: i.Description,
+				Valid:  true,
+			}
+		}
+		_, err := s.Db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          postID,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+			Title:       i.Title,
+			Url:         i.Link,
+			Description: description,
+			PublishedAt: publishedAt,
+			FeedID:      nextFeed.ID,
+		})
+		if err != nil {
+			// Check if it's a duplicate URL error
+			if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+				// Just log and continue
+				fmt.Printf("Skipping duplicate post: %s\n", i.Title)
+				continue
+			}
+			// For other errors, log them but continue processing
+			fmt.Printf("Error creating post: %v\n", err)
+			continue
+		}
 	}
 	return nil
 
