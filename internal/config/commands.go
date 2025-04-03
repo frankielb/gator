@@ -108,13 +108,21 @@ func HandlerUsers(s *State, cmd Command) error {
 }
 
 func HandlerAgg(s *State, cmd Command) error {
-	w := "https://www.wagslane.dev/index.xml"
-	rssFeed, err := rss.FetchFeed(context.Background(), w)
-	if err != nil {
-		return fmt.Errorf("error fetching feed: %v", err)
+	if len(cmd.Args) < 1 {
+		return fmt.Errorf("usage: agg <time between requests>")
 	}
-	fmt.Printf("%+v\n", rssFeed)
-	return nil
+	timeBetweenReqs, err := time.ParseDuration(cmd.Args[0])
+	if err != nil {
+		return fmt.Errorf("error setting time: %v", err)
+	}
+
+	fmt.Printf("collecting feeds every %v\n", timeBetweenReqs)
+	ticker := time.NewTicker(timeBetweenReqs)
+	for ; ; <-ticker.C {
+		if err := ScrapeFeeds(s); err != nil {
+			fmt.Printf("error: %v\n", err)
+		}
+	}
 
 }
 
@@ -273,5 +281,25 @@ func (c *Commands) Run(s *State, cmd Command) error {
 	} else {
 		return fmt.Errorf("Command not found: %s", cmd.Name)
 	}
+
+}
+
+func ScrapeFeeds(s *State) error {
+	nextFeed, err := s.Db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("error finding next feed: %v", err)
+	}
+
+	if err := s.Db.MarkFeedFetched(context.Background(), nextFeed.ID); err != nil {
+		return fmt.Errorf("error marking feed as fetched: %v", err)
+	}
+	feed, err := rss.FetchFeed(context.Background(), nextFeed.Url)
+	if err != nil {
+		return fmt.Errorf("error getting feed from url: %v", err)
+	}
+	for _, i := range feed.Channel.Item {
+		fmt.Println(i.Title)
+	}
+	return nil
 
 }
